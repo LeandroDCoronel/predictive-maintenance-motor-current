@@ -1,0 +1,7 @@
+Archivo: 99.csv
+Sensor: 0
+Total de muestras: 1
+Anomalías detectadas: 0
+Pérdida económica estimada: $0.00
+Gráfico generado: results\99.png
+CSV con anomalías: results\99.csv

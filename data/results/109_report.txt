@@ -1,0 +1,7 @@
+Archivo: 109.csv
+Sensor: 0
+Total de muestras: 243938
+Anomalías detectadas: 2432
+Pérdida económica estimada: $49.85
+Gráfico generado: C:\Oraculum_Systems\05_Products\Oraculum-Industrial-Soft-Sensor\data\results\109.png
+CSV con anomalías: C:\Oraculum_Systems\05_Products\Oraculum-Industrial-Soft-Sensor\data\results\109.csv

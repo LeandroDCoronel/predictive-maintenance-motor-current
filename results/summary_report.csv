@@ -1,0 +1,2 @@
+file,anomalies_detected,estimated_loss,plot_file_html,result_csv,report_file
+100.csv,4831,49.7381821626174,results\100.html,results\100.csv,results\100_report.txt

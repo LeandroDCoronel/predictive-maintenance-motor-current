@@ -1,0 +1,7 @@
+Archivo: 112.csv
+Sensor: 0
+Total de muestras: 485643
+Anomalías detectadas: 4813
+Pérdida económica estimada: $49.55
+Gráfico generado: results\112.png
+CSV con anomalías: results\112.csv

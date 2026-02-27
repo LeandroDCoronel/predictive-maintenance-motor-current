@@ -1,98 +1,176 @@
-# soft_sensor.py - Core module for motor current analysis (MCSA)
-
-import numpy as np
+import argparse
 import pandas as pd
+import os
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 from sklearn.ensemble import IsolationForest
+from glob import glob
 
+def preprocess(df, sensor_type='current', max_value=100, window_size=100):
+    if sensor_type not in df.columns:
+        print(f"Warning: column {sensor_type} not found")
+        return df
+    df[sensor_type] = (df[sensor_type] - df[sensor_type].min()) / (df[sensor_type].max() - df[sensor_type].min()) * max_value
+    df[f'{sensor_type}_smooth'] = df[sensor_type].rolling(window=window_size, min_periods=1).mean()
+    return df
 
-def detect_anomaly(current_data, method='isolation_forest', threshold_pct=15, contamination=0.05):
-    """
-    Detect anomalies in current data series.
+def process_csv(csv_file, output_folder, voltage=380, cost_hour=5000, window_size=100, sensor_type='current', show_plot=True):
+    df = pd.read_csv(csv_file)
+    df = preprocess(df, sensor_type=sensor_type, max_value=100, window_size=window_size)
 
-    Args:
-        current_data (array-like): 1D array of current values in Amperes
-        method (str): 'isolation_forest' (default) or 'zscore'
-        threshold_pct (float): % increase threshold for zscore method
-        contamination (float): expected anomaly fraction for IsolationForest
+    # Anomaly detection
+    model = IsolationForest(contamination=0.01, random_state=42)
+    df['anomaly'] = model.fit_predict(df[[f'{sensor_type}_smooth']])
+    df['anomaly'] = df['anomaly'].map({1:0, -1:1})
 
-    Returns:
-        tuple: (has_anomaly: bool, max_pct_increase: float, anomaly_index: int or None)
-    """
-    current_data = np.asarray(current_data)
-    
-    if method == 'isolation_forest':
-        df = pd.DataFrame({'current': current_data})
-        model = IsolationForest(contamination=contamination, random_state=42)
-        df['anomaly_score'] = model.fit_predict(df[['current']])
-        anomalies = df[df['anomaly_score'] == -1]
-        if not anomalies.empty:
-            idx = anomalies.index[0]
-            pct = ((current_data[idx] - np.mean(current_data)) / np.mean(current_data)) * 100
-            return True, pct, idx
-        return False, 0.0, None
-    
-    elif method == 'zscore':
-        mean = np.mean(current_data)
-        std = np.std(current_data)
-        z_scores = (current_data - mean) / std
-        max_z = z_scores.max()
-        if max_z > 3:
-            idx = np.argmax(z_scores)
-            pct = (max_z * std / mean) * 100 if mean != 0 else 0.0
-            return True, pct, idx
-        return False, 0.0, None
-    
-    else:
-        raise ValueError("method must be 'isolation_forest' or 'zscore'")
+    total_anomalies = df['anomaly'].sum()
+    estimated_loss = (total_anomalies / len(df)) * cost_hour
 
+    os.makedirs(output_folder, exist_ok=True)
+    result_csv = os.path.join(output_folder, os.path.basename(csv_file))
+    df.to_csv(result_csv, index=False)
 
-def calculate_power(current_data, voltage=380.0, power_factor=0.85):
-    """Calculate power in kW: P = V × I × cosφ (simplified three-phase)"""
-    return voltage * np.asarray(current_data) * power_factor / 1000.0
+    # --- Plotly interactive ---
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=df[sensor_type], mode='lines', name=sensor_type))
+    fig.add_trace(go.Scatter(y=df[f'{sensor_type}_smooth'], mode='lines', name=f'{sensor_type}_smooth'))
 
+    anomalies_idx = df.index[df['anomaly']==1].tolist()
+    fig.add_trace(go.Scatter(
+        x=anomalies_idx,
+        y=df.loc[anomalies_idx, f'{sensor_type}_smooth'],
+        mode='markers',
+        marker=dict(color='red', size=6),
+        name='Anomalies'
+    ))
 
-def calculate_economic_loss(max_pct_increase, downtime_hours=48.0, cost_per_hour=5000.0):
-    """Estimate economic loss in USD based on anomaly severity"""
-    risk_factor = max_pct_increase / 100.0
-    loss = downtime_hours * cost_per_hour * risk_factor
-    return round(loss, 2)
+    fig.update_layout(
+        title=f"{os.path.basename(csv_file)} - Detected Anomalies",
+        xaxis_title='Samples',
+        yaxis_title='Normalized Value',
+        template='plotly_white'
+    )
 
+    plot_file_html = os.path.join(output_folder, os.path.basename(csv_file).replace('.csv','.html'))
+    fig.write_html(plot_file_html)
 
-def run_analysis(current_data, voltage=380.0, downtime_hours=48.0, cost_per_hour=5000.0, method='isolation_forest'):
-    """
-    Run full analysis pipeline.
+    if show_plot:
+        fig.show()
 
-    Args:
-        current_data (array-like): current values in Amperes
-        voltage (float): operating voltage in Volts
-        downtime_hours (float): projected downtime hours
-        cost_per_hour (float): cost per downtime hour in USD
-        method (str): detection method
+    # TXT Report
+    report_file = os.path.join(output_folder, os.path.basename(csv_file).replace('.csv','_report.txt'))
+    with open(report_file,'w') as f:
+        f.write(f"File: {os.path.basename(csv_file)}\n")
+        f.write(f"Sensor: {sensor_type}\n")
+        f.write(f"Total samples: {len(df)}\n")
+        f.write(f"Anomalies detected: {total_anomalies}\n")
+        f.write(f"Estimated economic loss: ${estimated_loss:.2f}\n")
+        f.write(f"Interactive plot: {plot_file_html}\n")
+        f.write(f"CSV with anomalies: {result_csv}\n")
 
-    Returns:
-        dict: analysis results
-    """
-    has_anomaly, max_pct, anomaly_idx = detect_anomaly(current_data, method=method)
-    power_data = calculate_power(current_data, voltage)
-    loss = calculate_economic_loss(max_pct, downtime_hours, cost_per_hour) if has_anomaly else 0.0
-    
+    print(f"{os.path.basename(csv_file)}: {total_anomalies} anomalies, estimated loss: ${estimated_loss:.2f}")
     return {
-        'has_anomaly': has_anomaly,
-        'max_pct_increase': max_pct,
-        'anomaly_index': anomaly_idx,
-        'max_power_kw': power_data.max(),
-        'economic_loss_usd': loss,
-        'summary': f"Anomaly: {'Detected' if has_anomaly else 'None'} | Loss: ${loss:,.2f}" if has_anomaly else "No anomaly detected"
+        'file': os.path.basename(csv_file),
+        'anomalies_detected': total_anomalies,
+        'estimated_loss': estimated_loss,
+        'plot_file_html': plot_file_html,
+        'result_csv': result_csv,
+        'report_file': report_file
     }
 
-def save_report(results, filename='data/analysis_report.csv'):
-    """
-    Save the analysis results to a CSV file.
-    
-    Args:
-        results (dict): Output from run_analysis()
-        filename (str): Path to save the CSV (default: data/analysis_report.csv)
-    """
-    df = pd.DataFrame([results])
-    df.to_csv(filename, index=False)
-    print(f"Report saved to {filename}")
+def main():
+    parser = argparse.ArgumentParser(description="Soft Sensor v2 - Motor anomaly detection")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--csv", type=str, help="Path to a single CSV file")
+    group.add_argument("--folder", type=str, help="Process all CSV files in this folder")
+    parser.add_argument("--output", type=str, default="results", help="Folder to save results")
+    parser.add_argument("--voltage", type=float, default=380, help="Operating voltage")
+    parser.add_argument("--cost-hour", type=float, default=5000, help="Cost per hour of downtime")
+    parser.add_argument("--window-size", type=int, default=100, help="Rolling window size for smoothing")
+    parser.add_argument("--method", type=str, default="isolation_forest", help="Detection method (only isolation_forest)")
+    parser.add_argument("--sensor", type=str, default=None, help="Sensor type: current, vibration, etc. (optional)")
+    parser.add_argument("--no-show", action="store_true", help="Do not display plots automatically")
+    args = parser.parse_args()
+
+    if args.csv:
+        files = [args.csv]
+    else:
+        files = glob(os.path.join(args.folder, "*.csv"))
+
+    if not files:
+        print("No CSV files found to process.")
+        return
+
+    summary = []
+
+    for file in files:
+        df_sample = pd.read_csv(file, nrows=1)
+        if args.sensor:
+            sensor = args.sensor
+        elif 'current' in df_sample.columns:
+            sensor = 'current'
+        elif 'vibration' in df_sample.columns:
+            sensor = 'vibration'
+        else:
+            sensor = df_sample.columns[0]
+
+        result = process_csv(
+            file,
+            output_folder=args.output,
+            voltage=args.voltage,
+            cost_hour=args.cost_hour,
+            window_size=args.window_size,
+            sensor_type=sensor,
+            show_plot=not args.no_show
+        )
+        summary.append(result)
+
+    # Global summary CSV
+    summary_df = pd.DataFrame(summary)
+    summary_file = os.path.join(args.output, "summary_report.csv")
+    summary_df.to_csv(summary_file, index=False)
+
+    # --- Global plot ---
+    global_plot_file = os.path.join(args.output, "global_anomalies_plot.html")
+    fig_global = go.Figure()
+    colors = ['blue', 'green', 'orange', 'purple', 'brown', 'cyan', 'magenta']
+
+    for idx, result in enumerate(summary):
+        df = pd.read_csv(result['result_csv'])
+        sensor_col = 'current_smooth' if 'current_smooth' in df.columns else df.columns[0]
+        fig_global.add_trace(go.Scatter(
+            y=df[sensor_col],
+            mode='lines',
+            name=result['file'],
+            line=dict(color=colors[idx % len(colors)], width=1),
+            opacity=0.6
+        ))
+        anomalies_idx = df.index[df['anomaly']==1].tolist()
+        fig_global.add_trace(go.Scatter(
+            x=anomalies_idx,
+            y=df.loc[anomalies_idx, sensor_col],
+            mode='markers',
+            marker=dict(color='red', size=4),
+            showlegend=False
+        ))
+
+    fig_global.update_layout(
+        title="Aggregated Anomalies of All Motors",
+        xaxis_title="Samples",
+        yaxis_title="Normalized Amperage",
+        template='plotly_white'
+    )
+
+    fig_global.write_html(global_plot_file)
+    if not args.no_show:
+        fig_global.show()
+
+    print(f"Global interactive plot saved to: {global_plot_file}")
+    print(f"\nGlobal summary generated: {summary_file}")
+    print(f"Total anomalies: {summary_df['anomalies_detected'].sum()}")
+    print(f"Estimated total economic loss: ${summary_df['estimated_loss'].sum():.2f}")
+
+if __name__ == "__main__":
+    main()

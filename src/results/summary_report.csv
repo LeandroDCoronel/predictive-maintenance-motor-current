@@ -1,0 +1,17 @@
+file,anomalies_detected,estimated_loss,plot_file,result_csv,report_file
+100.csv,4831,49.7381821626174,results\100.png,results\100.csv,results\100_report.txt
+109.csv,2432,49.848732054866396,results\109.png,results\109.csv,results\109_report.txt
+110.csv,4856,49.93583204448978,results\110.png,results\110.csv,results\110_report.txt
+111.csv,4800,49.4190176734762,results\111.png,results\111.csv,results\111_report.txt
+112.csv,4813,49.55286084634186,results\112.png,results\112.csv,results\112_report.txt
+174.csv,636,49.85263685959742,results\174.png,results\174.csv,results\174_report.txt
+175.csv,4817,49.24099156657296,results\175.png,results\175.csv,results\175_report.txt
+176.csv,4870,49.901222221311414,results\176.png,results\176.csv,results\176_report.txt
+177.csv,4826,49.74611545304424,results\177.png,results\177.csv,results\177_report.txt
+213.csv,2440,49.93062916685425,results\213.png,results\213.csv,results\213_report.txt
+214.csv,4834,49.828578968092806,results\214.png,results\214.csv,results\214_report.txt
+215.csv,4784,48.6726924219548,results\215.png,results\215.csv,results\215_report.txt
+217.csv,4784,48.6726924219548,results\217.png,results\217.csv,results\217_report.txt
+97.csv,2440,50.012708147152146,results\97.png,results\97.csv,results\97_report.txt
+98.csv,4817,49.77237173565777,results\98.png,results\98.csv,results\98_report.txt
+99.csv,0,0.0,results\99.png,results\99.csv,results\99_report.txt
