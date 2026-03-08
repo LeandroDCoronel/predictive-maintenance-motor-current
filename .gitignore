@@ -2,8 +2,15 @@
 __pycache__/
 *.pyc
 
-# Generated data / reports
-data/*.csv
+# Virtual environment
+venv/
+
+# Data
+data/raw/
+data/processed/*.csv
+
+# Models
+models/*.pkl
 
 # OS
 .DS_Store
