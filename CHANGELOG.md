@@ -6,6 +6,35 @@ The format is based on *Keep a Changelog* and this project follows semantic vers
 
 ---
 
+## v4.0.0 – Feature Engineering & Signal Intelligence - 2026-03-21 
+
+### Added
+- Feature extraction module (`feature_extractor.py`)
+- Window-based signal processing (100-sample windows)
+- Statistical and energy-based features:
+  - mean, std, max, min
+  - RMS, skewness, kurtosis
+  - signal energy
+- New dataset pipeline (`prepare_features.py`)
+
+### Improved
+- Model input upgraded from raw signals to engineered features
+- Significant performance improvement (accuracy ~98%)
+- Better representation of motor behavior
+
+### Changed
+- Training now uses `features_dataset.csv` instead of raw dataset
+- Input features expanded from 3 → 24
+
+### Notes
+This version marks the transition from raw signal ML to
+feature-based industrial signal intelligence.
+
+### Next
+- Model robustness validation
+- Real-world signal simulation
+- Fault detection in continuous streams
+
 ## [v3.0] - 2026-03-07
 
 ### Added

@@ -1,0 +1,2 @@
+has_anomaly,max_pct_increase,anomaly_index,max_power_kw,economic_loss_usd,summary
+True,313.08234304343256,93,1.627665,3.13,Anomaly: Detected | Loss: $3.13

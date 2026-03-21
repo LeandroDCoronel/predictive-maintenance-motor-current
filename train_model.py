@@ -6,9 +6,9 @@ import joblib
 
 print("Loading dataset...")
 
-df = pd.read_csv("data/processed/motor_current_dataset.csv")
+df = pd.read_csv("features_dataset.csv")
 
-X = df[["Ia","Ib","Ic"]]
+X = df.drop("condition", axis=1)
 y = df["condition"]
 
 X_train, X_test, y_train, y_test = train_test_split(
